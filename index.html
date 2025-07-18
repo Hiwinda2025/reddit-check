@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit搜索</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .loading::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            text-align: left;
+            display: none;
+            white-space: pre-line;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .required {
+            color: #e74c3c;
+        }
+
+        .field-description {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reddit搜索</h1>
+        <form id="searchForm">
+            <div class="form-group">
+                <label for="keyword">查询关键词 <span class="required">*</span></label>
+                <input type="text" id="keyword" name="查询关键词" required placeholder="请输入搜索关键词">
+            </div>
+
+            <div class="form-group">
+                <label for="sortMethod">查询方式 <span class="required">*</span></label>
+                <select id="sortMethod" name="查询方式" required>
+                    <option value="">请选择查询方式</option>
+                    <option value="hot">热门 (Hot)</option>
+                    <option value="new">最新 (New)</option>
+                    <option value="relevance">相关性 (Relevance)</option>
+                    <option value="comments">评论数 (Comments)</option>
+                    <option value="top">置顶 (Top)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="upvotes">点赞数要求大于 <span class="required">*</span></label>
+                <input type="number" id="upvotes" name="点赞数要求大于" required placeholder="100" min="0">
+                <div class="field-description">只搜索点赞数超过此数值的帖子</div>
+            </div>
+
+            <div class="form-group">
+                <label for="days">发布距今天天数 <span class="required">*</span></label>
+                <input type="number" id="days" name="发布时间距今天数" required placeholder="10" min="1">
+                <div class="field-description">只搜索在指定天数内发布的帖子</div>
+            </div>
+
+            <button type="submit" class="submit-btn">
+                <span class="btn-text">开始搜索</span>
+                <div class="loading"></div>
+            </button>
+        </form>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        const submitBtn = form.querySelector('.submit-btn');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const loading = submitBtn.querySelector('.loading');
+        const message = document.getElementById('message');
+
+        // Webhook URL
+        const WEBHOOK_URL = 'http://localhost:5678/webhook-test/68ab020f-30c0-4506-9840-fd3e287535ae';
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // 获取表单数据
+            const formData = new FormData(form);
+            const data = {};
+            
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+
+            // 验证必填字段
+            if (!data['查询关键词'] || !data['查询方式'] || !data['点赞数要求大于'] || !data['发布时间距今天数']) {
+                showMessage('请填写所有必填字段', 'error');
+                return;
+            }
+
+            // 转换数字字段
+            data['点赞数要求大于'] = parseInt(data['点赞数要求大于']);
+            data['发布时间距今天数'] = parseInt(data['发布时间距今天数']);
+
+            // 显示加载状态
+            setLoading(true);
+            hideMessage();
+
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    showMessage('搜索请求已提交成功！工作流正在处理您的请求...', 'success');
+                    form.reset(); // 重置表单以便继续监听新的提交
+                } else {
+                    // 尝试获取响应体中的详细错误信息
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.message) {
+                            errorMessage += ` - ${errorData.message}`;
+                        }
+                        if (response.status === 404) {
+                            errorMessage += '\n\n⚠️ 错误诊断：Webhook端点未注册为POST请求。\n请检查n8n工作流配置：\n1. 确保工作流已激活\n2. 确保Webhook节点配置为接受POST请求\n3. 确保HTTP方法设置正确';
+                        }
+                    } catch (e) {
+                        // 如果无法解析JSON，使用默认错误消息
+                    }
+                    throw new Error(errorMessage);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // 提供更详细的错误诊断
+                let errorMsg = error.message;
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    errorMsg = '网络连接失败\n\n可能的原因：\n1. Webhook服务未运行 (端口5678)\n2. 防火墙阻止了连接\n3. CORS策略限制\n4. 网络连接问题';
+                }
+                
+                showMessage(`提交失败: ${errorMsg}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            submitBtn.disabled = isLoading;
+            if (isLoading) {
+                btnText.style.opacity = '0';
+                loading.style.display = 'block';
+            } else {
+                btnText.style.opacity = '1';
+                loading.style.display = 'none';
+            }
+        }
+
+        function showMessage(text, type) {
+            message.textContent = text;
+            message.className = `message ${type}`;
+            message.style.display = 'block';
+            
+            // 成功消息3秒后自动隐藏
+            if (type === 'success') {
+                setTimeout(() => {
+                    hideMessage();
+                }, 3000);
+            }
+        }
+
+        function hideMessage() {
+            message.style.display = 'none';
+        }
+
+        // 数字输入验证
+        document.getElementById('upvotes').addEventListener('input', function(e) {
+            if (e.target.value < 0) {
+                e.target.value = 0;
+            }
+        });
+
+        document.getElementById('days').addEventListener('input', function(e) {
+            if (e.target.value < 1) {
+                e.target.value = 1;
+            }
+        });
+    </script>
+</body>
+</html> 
